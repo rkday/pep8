@@ -16,6 +16,8 @@ Changelog
 * Report E266 instead of E265 when the block comment starts with
   multiple ``#``. (Issue #270)
 
+* Do not enforce whitespaces around ``**`` operator. (Issue #292)
+
 
 1.5.7 (2014-05-29)
 ------------------
