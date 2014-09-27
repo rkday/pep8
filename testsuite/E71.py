@@ -36,6 +36,8 @@ if not (X in Y or X is Z):
     pass
 if not (X in Y):
     pass
+if (not X) in Y:
+    pass
 if x is not y:
     pass
 #:
