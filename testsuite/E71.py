@@ -13,6 +13,12 @@ if res != False:
 if not X in Y:
     pass
 #: E713
+if not (X) in Y:
+    pass
+#: E713
+if not X() in Y:
+    pass
+#: E713
 if not X.B in Y:
     pass
 #: E713
@@ -33,6 +39,8 @@ if not X.B is Y:
 if x not in y:
     pass
 if not (X in Y or X is Z):
+    pass
+if not A or (X in Y and X is Z):
     pass
 if not (X in Y):
     pass

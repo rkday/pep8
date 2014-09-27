@@ -102,7 +102,6 @@ DOCSTRING_REGEX = re.compile(r'u?r?["\']')
 EXTRANEOUS_WHITESPACE_REGEX = re.compile(r'[[({] | []}),;:]')
 WHITESPACE_AFTER_COMMA_REGEX = re.compile(r'[,;:]\s*(?:  |\t)')
 COMPARE_SINGLETON_REGEX = re.compile(r'([=!]=)\s*(None|False|True)')
-COMPARE_NEGATIVE_REGEX = re.compile(r'\b(not)\s+[^[({ ]+\s+(in|is)\s')
 COMPARE_TYPE_REGEX = re.compile(r'(?:[=!]=|is(?:\s+not)?)\s*type(?:s.\w+Type'
                                 r'|\s*\(\s*([^)]*[^ )])\s*\))')
 KEYWORD_REGEX = re.compile(r'(\s*)\b(?:%s)\b(\s*)' % r'|'.join(KEYWORDS))
@@ -953,7 +952,7 @@ def comparison_to_singleton(logical_line, noqa):
                                (code, singleton, msg))
 
 
-def comparison_negative(logical_line):
+def comparison_negative(logical_line, tokens):
     r"""Negative comparison should be done using "not in" and "is not".
 
     Okay: if x not in y:\n    pass
@@ -965,14 +964,38 @@ def comparison_negative(logical_line):
     E714: if not X is Y:\n    pass
     E714: Z = not X.B is Y
     """
-    match = COMPARE_NEGATIVE_REGEX.search(logical_line)
-    if match:
-        pos = match.start(1)
-        if match.group(2) == 'in':
-            yield pos, "E713 test for membership should be 'not in'"
-        else:
-            yield pos, "E714 test for object identity should be 'is not'"
+    
+    seen_not = False
+    last_was_not = False
+    seen_not_parens_level = 0
+    parens = 0
 
+    # Walk through the tokens, keeeping track of:
+    # * whether we've seen the token 'not'
+    # * what level of parens it was at
+    # * whether 'not' ws the last token we saw
+    #
+    # If we see an 'in', we've seen a 'not' at the same parens level,
+    # and it wasn't the last token, that's E713.
+    #
+    # If we see an 'is' and we've seen a 'not' at the same parens level,
+    # that's E713 (regardless of whether it was the last token - the
+    # right form is 'is not' not 'not is').
+    for token in tokens:
+        if token[1] == 'not':
+            seen_not = True
+            last_was_not = True
+            seen_not_parens_level = parens
+        elif token[1] == '(':
+            parens += 1
+        elif token[1] == ')':
+            parens -= 1
+        elif token[1] == 'in' and seen_not and not last_was_not and parens == seen_not_parens_level:
+            yield token[2][1], "E713 test for membership should be 'not in'"
+        elif token[1] == 'is' and seen_not and parens == seen_not_parens_level:
+            yield token[2][1], "E714 test for object identity should be 'is not'"
+        if token[1] != 'not':
+            last_was_not = False
 
 def comparison_type(logical_line):
     r"""Object type comparisons should always use isinstance().
